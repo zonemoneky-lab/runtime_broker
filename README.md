@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # hm_launcher
 
 
@@ -91,3 +92,156 @@ For open source projects, say how it is licensed.
 
 ## Project status
 If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+=======
+# Python Runtime Agent
+
+这是一个 Python 3.12 的常驻更新代理，实现你给的结构：
+
+```text
+Windows Scheduler
+        |
+        v
+ Python Agent
+        |
+ +------+--------------+
+ |      |              |
+ v      v              v
+Update Runtime      Config
+Manager Manager     Manager
+ |
+ v
+VersionManager
+```
+
+## 能力
+
+- 从 GitHub 私有仓库的指定 `branch` / `package_dir` 列出文件。
+- 按 `package_pattern` 匹配 `runtime-<version>.zip`。
+- 从匹配结果里选择最高版本并下载 zip。
+- 将版本安装到 `state_dir/versions/<version>`。
+- 用 `current.txt` 维护当前版本，切换时使用临时文件替换。
+- 保留激活历史 `history.json`，启动失败时自动回滚。
+- `RuntimeManager` 负责启动、停止、重启业务 Runtime。
+- Runtime 的 stdout/stderr 会写入 `state_dir/runtime-logs/`，启动秒退时异常会带上日志路径。
+- `agent.lock` 防止 Windows Scheduler 重复拉起多个代理实例。
+- 支持启动 DLL 或 exe，入口必须在 `runtime.command` 里显式配置。
+- 也支持直接启动 exe，只需要改 `runtime.command`。
+
+## 目录结构
+
+```text
+python_agent/
+  run_agent.py
+  config.example.json
+  agent/
+    config.py
+    github_client.py
+    update_manager.py
+    version_manager.py
+    runtime_manager.py
+    service.py
+```
+
+运行后状态目录类似：
+
+```text
+C:\ProgramData\RuntimeAgent\
+  current.txt
+  history.json
+  agent.log
+  downloads\
+  runtime-logs\
+  versions\
+    1.2.0\
+    1.10.0\
+```
+
+## GitHub 私有仓库准备
+
+代理不读取 GitHub Release。它会读取配置里的 `github.branch` 和 `github.package_dir`，在该目录里查找 runtime zip 包，例如：
+
+```text
+runtime-1.2.0.zip
+runtime-1.10.0.zip
+```
+
+包名默认用 `runtime-*.zip` 匹配，版本号默认用 `^runtime-(?P<version>.+)\.zip$` 提取。下载后会解压到 `versions/<version>/`，所以 zip 内需要包含可运行的 DLL/exe，或你的 `runtime.command` 要指向解压后实际存在的入口文件。
+
+token 放环境变量，不建议写进配置文件：
+
+```powershell
+setx GITHUB_TOKEN "github_pat_xxx"
+```
+
+## 配置
+
+复制示例配置：
+
+```powershell
+Copy-Item .\python_agent\config.example.json .\python_agent\config.json
+```
+
+关键配置：
+
+```json
+{
+  "github": {
+    "owner": "your-org",
+    "repo": "your-private-runtime-repo",
+    "token_env": "GITHUB_TOKEN",
+    "branch": "main",
+    "package_dir": "",
+    "package_pattern": "runtime-*.zip",
+    "version_regex": "^runtime-(?P<version>.+)\\.zip$"
+  },
+  "runtime": {
+    "command": ["{version_dir}\\YourRuntime.exe"],
+    "working_dir": "{version_dir}"
+  }
+}
+```
+
+如果 Runtime 是明确的 exe：
+
+```json
+"command": ["{version_dir}\\YourRuntime.exe"]
+```
+
+如果 Runtime 是明确的 .NET DLL：
+
+```json
+"command": ["dotnet", "{version_dir}\\YourRuntime.dll"]
+```
+
+更新检测时，代理会选择 branch 目录里版本号最高的 `runtime-<version>.zip`。只要最高版本高于 `current.txt`，就会下载、解压并切换。
+
+## 运行
+
+单次检查：
+
+```powershell
+py -3.12 .\python_agent\run_agent.py --config .\python_agent\config.json --once
+```
+
+常驻：
+
+```powershell
+py -3.12 .\python_agent\run_agent.py --config .\python_agent\config.json
+```
+
+## Windows Scheduler
+
+可以创建一个开机启动任务，执行：
+
+```text
+Program/script: C:\Windows\py.exe
+Arguments: -3.12 C:\path\to\python_agent\run_agent.py --config C:\path\to\python_agent\config.json
+Start in: C:\path\to\python_agent
+```
+
+如果希望 Scheduler 周期性拉起，而代理只跑一次，把 Arguments 改成：
+
+```text
+-3.12 C:\path\to\python_agent\run_agent.py --config C:\path\to\python_agent\config.json --once
+```
+>>>>>>> a5247b7 (first commit)
