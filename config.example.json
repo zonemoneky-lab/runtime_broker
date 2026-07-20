@@ -1,9 +1,9 @@
 {
   "agent": {
-    "state_dir": "%PROGRAMDATA%\\RuntimeAgent",
-    "poll_interval_seconds": 300,
+    "state_dir": "%PROGRAMDATA%\\RuntimeBroker",
+    "poll_interval_seconds": 30,
     "run_once": false,
-    "log_file": "%PROGRAMDATA%\\RuntimeAgent\\agent.log"
+    "log_file": "%PROGRAMDATA%\\RuntimeBroker\\agent.log"
   },
   "github": {
     "owner": "zonemoneky-lab",

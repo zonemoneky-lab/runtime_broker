@@ -112,7 +112,7 @@ class GitHubClient:
         }
         req = Request(url, headers=headers)
         last_error: Exception | None = None
-        for attempt in range(1, 4):
+        for attempt in range(1, 100):
             try:
                 with urlopen(req, timeout=60) as response:
                     return response.read()
