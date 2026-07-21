@@ -44,7 +44,7 @@ def build_service(config_path: str) -> tuple[AgentService, bool, SingleInstanceL
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Persistent runtime update agent")
-    parser.add_argument("--config", required=True, help="Path to agent JSON config")
+    parser.add_argument("--config",  help="Path to agent JSON config",default=r".\config.example.json")
     parser.add_argument("--once", action="store_true", help="Run one update cycle and exit")
     args = parser.parse_args()
 
