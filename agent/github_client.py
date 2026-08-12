@@ -18,6 +18,16 @@ from .version_compare import compare_versions
 
 LOG = logging.getLogger(__name__)
 
+from pathlib import Path
+import ssl
+
+base_path = Path(__file__).resolve().parent.parent
+cafile = base_path / "certs" / "cacert.pem"
+
+ssl_context = ssl.create_default_context(
+    cafile=str(cafile)
+)
+
 
 @dataclass(frozen=True)
 class RemotePackage:
@@ -114,7 +124,7 @@ class GitHubClient:
         last_error: Exception | None = None
         for attempt in range(1, 100):
             try:
-                with urlopen(req, timeout=60) as response:
+                with urlopen(req, timeout=60,context=ssl_context) as response:
                     return response.read()
             except HTTPError as exc:
                 last_error = exc

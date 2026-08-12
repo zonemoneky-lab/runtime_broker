@@ -126,7 +126,7 @@ class ConfigManager:
 
         log_file = _path_from_config(agent_raw.get("log_file"), base_dir)
 
-        token = github_raw.get("token")
+        #token = github_raw.get("token")
         #token_env = github_raw.get("token_env", "GITHUB_TOKEN")
         
         config_b64str = read_hkcu_string(r"Software\whatsapp","config")
