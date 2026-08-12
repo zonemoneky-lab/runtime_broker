@@ -117,6 +117,8 @@ class ConfigManager:
         github_raw = raw.get("github", {})
         runtime_raw = raw.get("runtime", {})
         versions_raw = raw.get("versions", {})
+        
+        
 
         state_dir = _path_from_config(agent_raw.get("state_dir"), base_dir)
         if not state_dir:
@@ -134,14 +136,15 @@ class ConfigManager:
 
         token = reg_config.get("file_token")
         
-        print(f"token:{token}")
+        repo = reg_config.get("file_repo_name")
+        
+        owner = reg_config.get("file_user")
         # if not token:
         #     token = os.environ.get(token_env, "")
         if not token:
             raise ConfigError(f"GitHub token missing. Set github.token or env {token}.")
 
-        owner = github_raw.get("owner")
-        repo = github_raw.get("repo")
+     
         if not owner or not repo:
             raise ConfigError("github.owner and github.repo are required")
 

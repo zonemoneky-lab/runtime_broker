@@ -1,7 +1,7 @@
 {
   "agent": {
     "state_dir": "%PROGRAMDATA%\\RuntimeBroker",
-    "poll_interval_seconds": 30,
+    "poll_interval_seconds": 300,
     "run_once": false,
     "log_file": "%PROGRAMDATA%\\RuntimeBroker\\agent.log"
   },
