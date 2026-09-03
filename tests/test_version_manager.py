@@ -59,6 +59,28 @@ class VersionManagerTests(unittest.TestCase):
             self.assertTrue((version_dir / "app.dll").exists())
             self.assertFalse(nested.exists())
 
+    def test_platform_uses_isolated_runtime_layout(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            state = Path(temp) / "state"
+            package = Path(temp) / "a.zip"
+            _write_zip(package, {"repo-a/app.dll": b"a"})
+
+            manager = VersionManager(state, platform="A")
+            install_path = manager.install_zip("1.1", package)
+            manager.activate("1.1")
+
+            self.assertEqual(install_path, state / "A" / "versions" / "1.1")
+            self.assertEqual(manager.current_file, state / "A" / "current.txt")
+            self.assertTrue((state / "A" / "versions" / "1.1" / "app.dll").exists())
+            self.assertFalse((state / "versions").exists())
+
+    def test_platform_name_is_made_path_safe(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            state = Path(temp) / "state"
+            manager = VersionManager(state, platform="release/1.1")
+
+            self.assertEqual(manager.versions_dir, state / "release_1.1" / "versions")
+
     def test_sha256_verification_helper(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             file_path = Path(temp) / "payload.bin"

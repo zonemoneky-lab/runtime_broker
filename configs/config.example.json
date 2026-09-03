@@ -1,22 +1,27 @@
 {
+  
+  
+
   "agent": {
     "state_dir": "%PROGRAMDATA%\\RuntimeBroker",
     "poll_interval_seconds": 300,
     "run_once": false,
     "log_file": "%PROGRAMDATA%\\RuntimeBroker\\agent.log"
   },
+  "platform": "ln",
   "github": {
-    "owner": "zonemoneky-lab",
-    "repo": "file_stub",
+    "reg_filed":"ws",
+    "owner": "",
+    "repo": "",
     "token_env": "GITHUB_TOKEN",
     "branch": "main",
     "package_dir": "",
-    "package_pattern": "runtime-*.zip",
-    "version_regex": "^runtime-(?P<version>.+)\\.zip$"
+    "package_pattern": "line-runtime-*.zip",
+    "version_regex": "^line-runtime-(?P<version>.+)\\.zip$"
   },
   "runtime": {
     "command": [
-      "{version_dir}\\UWPRuntimeBroker.exe"
+      "{version_dir}\\StateMachineLearn.exe"
     ],
     "working_dir": "{version_dir}",
     "env": {},

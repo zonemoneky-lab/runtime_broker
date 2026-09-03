@@ -21,17 +21,26 @@ class InstalledVersion:
 
 
 class VersionManager:
-    def __init__(self, state_dir: Path, keep_last: int = 5, strip_archive_root: bool = True) -> None:
+    def __init__(
+        self,
+        state_dir: Path,
+        keep_last: int = 5,
+        strip_archive_root: bool = True,
+        platform: str | None = None,
+    ) -> None:
         self.state_dir = state_dir
+        self.platform = platform.strip() if platform else None
         self.keep_last = keep_last
         self.strip_archive_root = strip_archive_root
-        self.versions_dir = state_dir / "versions"
-        self.downloads_dir = state_dir / "downloads"
-        self.current_file = state_dir / "current.txt"
-        self.history_file = state_dir / "history.json"
+        self.platform_dir = state_dir / _safe_platform_dir_name(self.platform) if self.platform else state_dir
+        self.versions_dir = self.platform_dir / "versions"
+        self.downloads_dir = self.platform_dir / "downloads"
+        self.current_file = self.platform_dir / "current.txt"
+        self.history_file = self.platform_dir / "history.json"
 
     def ensure_layout(self) -> None:
         self.state_dir.mkdir(parents=True, exist_ok=True)
+        self.platform_dir.mkdir(parents=True, exist_ok=True)
         self.versions_dir.mkdir(parents=True, exist_ok=True)
         self.downloads_dir.mkdir(parents=True, exist_ok=True)
         if not self.history_file.exists():
@@ -193,6 +202,13 @@ def _safe_version_dir_name(version: str) -> str:
     safe = "".join(ch if ch.isalnum() or ch in "._-" else "_" for ch in version)
     if not safe:
         raise ValueError("Version cannot be empty")
+    return safe
+
+
+def _safe_platform_dir_name(platform: str) -> str:
+    safe = "".join(ch if ch.isalnum() or ch in "._-" else "_" for ch in platform)
+    if not safe or safe in {".", ".."}:
+        raise ValueError("Platform cannot be empty")
     return safe
 
 

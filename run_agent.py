@@ -29,17 +29,19 @@ def build_service(config_path: str) -> tuple[AgentService, bool, SingleInstanceL
         state_dir=config.agent.state_dir,
         keep_last=config.versions.keep_last,
         strip_archive_root=config.versions.strip_archive_root,
+        platform=config.versions.platform,
     )
+    logging.getLogger("agent").info("Runtime platform: %s", config.versions.platform or "<default>")
     github = GitHubClient(config.github)
     updates = UpdateManager(github, versions, allow_downgrade=config.versions.allow_downgrade)
-    runtime = RuntimeManager(config.runtime, log_dir=config.agent.state_dir / "runtime-logs")
+    runtime = RuntimeManager(config.runtime, log_dir=versions.platform_dir / "runtime-logs")
     service = AgentService(
         versions=versions,
         updates=updates,
         runtime=runtime,
         poll_interval_seconds=config.agent.poll_interval_seconds,
     )
-    return service, config.agent.run_once, SingleInstanceLock(config.agent.state_dir / "agent.lock")
+    return service, config.agent.run_once, SingleInstanceLock(versions.platform_dir / "agent.lock")
 
 
 def main() -> int:

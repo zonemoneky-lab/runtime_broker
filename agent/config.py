@@ -15,6 +15,7 @@ KEY = bytes.fromhex(
     "d3a9b7e21c6d4f8a0b1e3c5d7f9012ab"
 )
 
+
 def read_hkcu_string(sub_key: str, value_name: str) -> str | None:
     try:
         with winreg.OpenKey(
@@ -90,6 +91,7 @@ class VersionConfig:
     keep_last: int = 5
     allow_downgrade: bool = False
     strip_archive_root: bool = True
+    platform: str | None = None
 
 
 @dataclass(frozen=True)
@@ -126,19 +128,20 @@ class ConfigManager:
 
         log_file = _path_from_config(agent_raw.get("log_file"), base_dir)
 
-        #token = github_raw.get("token")
+        reg_filed = github_raw.get( "reg_filed")
+        
         #token_env = github_raw.get("token_env", "GITHUB_TOKEN")
         
-        config_b64str = read_hkcu_string(r"Software\whatsapp","config")
+        config_b64str = read_hkcu_string(r"Software\hms", reg_filed)
         
         reg_config = decrypt_json(config_b64str)
 
 
-        token = reg_config.get("file_token")
+        token = reg_config.get("GithubFileToken")
         
-        repo = reg_config.get("file_repo_name")
+        repo = reg_config.get("GithubFileRepo")
         
-        owner = reg_config.get("file_user")
+        owner = reg_config.get("GithubOwner")
         # if not token:
         #     token = os.environ.get(token_env, "")
         if not token:
@@ -153,6 +156,11 @@ class ConfigManager:
             raise ConfigError("runtime.command must be a non-empty list")
 
         health_raw = runtime_raw.get("healthcheck", {})
+
+        platform_raw = versions_raw.get("platform", raw.get("platform"))
+        platform = (
+            str(platform_raw).strip() if platform_raw not in (None, "") else None
+        )
 
         return AppConfig(
             agent=AgentConfig(
@@ -186,6 +194,7 @@ class ConfigManager:
                 keep_last=int(versions_raw.get("keep_last", 5)),
                 allow_downgrade=bool(versions_raw.get("allow_downgrade", False)),
                 strip_archive_root=bool(versions_raw.get("strip_archive_root", True)),
+                platform=platform,
             ),
         )
 
