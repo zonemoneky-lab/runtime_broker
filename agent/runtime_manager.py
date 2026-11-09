@@ -131,11 +131,15 @@ class RuntimeManager:
     def _raise_if_exited_early(self) -> None:
         if not self.process:
             return
-        time.sleep(0.5)
-        if self.process.poll() is not None:
-            message = self._runtime_exit_message()
-            self._close_runtime_logs()
-            raise RuntimeError(message)
+        deadline = time.monotonic() + 1.5
+        while True:
+            if self.process.poll() is not None:
+                message = self._runtime_exit_message()
+                self._close_runtime_logs()
+                raise RuntimeError(message)
+            if time.monotonic() >= deadline:
+                return
+            time.sleep(0.1)
 
     def _runtime_exit_message(self) -> str:
         stderr_hint = f"; stderr={self._stderr_path}" if self._stderr_path else ""

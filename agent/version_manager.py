@@ -24,13 +24,11 @@ class VersionManager:
     def __init__(
         self,
         state_dir: Path,
-        keep_last: int = 5,
         strip_archive_root: bool = True,
         platform: str | None = None,
     ) -> None:
         self.state_dir = state_dir
         self.platform = platform.strip() if platform else None
-        self.keep_last = keep_last
         self.strip_archive_root = strip_archive_root
         self.platform_dir = state_dir / _safe_platform_dir_name(self.platform) if self.platform else state_dir
         self.versions_dir = self.platform_dir / "versions"
@@ -121,29 +119,46 @@ class VersionManager:
         self._append_history("clear_current", None, previous)
         LOG.warning("Cleared current version (previous=%s)", previous)
 
-    def rollback(self) -> str | None:
-        current = self.current_version()
-        for entry in reversed(self._read_history()):
-            version = entry.get("previous")
-            if version and version != current and self.path_for(version).exists():
-                self.activate(version)
-                self._append_history("rollback", version, current)
-                return version
-        installed = [item for item in self.installed_versions() if item.version != current]
-        if not installed:
-            return None
-        self.activate(installed[0].version)
-        self._append_history("rollback", installed[0].version, current)
-        return installed[0].version
+    def cleanup_after_activation(self) -> None:
+        """Remove every non-active version, staging leftover and archive.
 
-    def cleanup_old_versions(self) -> None:
-        keep = max(self.keep_last, 1)
-        current = self.current_version()
-        installed = self.installed_versions()
-        removable = [item for item in installed if item.version != current][keep - 1 :]
-        for item in removable:
-            LOG.info("Removing old installed version %s", item.version)
-            shutil.rmtree(item.path, ignore_errors=True)
+        Called only after the new version has been started and activated.
+        Cleanup is best-effort: a stale file must never abort a good update.
+        """
+        try:
+            self._prune_after_activation()
+        except Exception:
+            LOG.exception("Cleanup after activation failed; the active version is unaffected")
+
+    def _prune_after_activation(self) -> None:
+        current_path = self.current_path()
+        if current_path is None:
+            LOG.warning("No active version; skipping cleanup")
+            return
+        for directory, label, keep in (
+            (self.versions_dir, "non-active version", current_path),
+            (self.downloads_dir, "downloaded archive", None),
+        ):
+            try:
+                if not directory.exists():
+                    continue
+                for path in directory.iterdir():
+                    if keep is not None and path == keep:
+                        continue
+                    self._remove_entry(path, label)
+            except OSError as exc:
+                LOG.warning("Could not clean %s: %s", directory, exc)
+
+    @staticmethod
+    def _remove_entry(path: Path, label: str) -> None:
+        LOG.info("Removing %s %s", label, path.name)
+        if path.is_dir():
+            shutil.rmtree(path, ignore_errors=True)
+            return
+        try:
+            path.unlink()
+        except OSError as exc:
+            LOG.warning("Could not remove %s: %s", path, exc)
 
     def _extract_zip(self, zip_path: Path, destination: Path) -> None:
         with zipfile.ZipFile(zip_path) as archive:

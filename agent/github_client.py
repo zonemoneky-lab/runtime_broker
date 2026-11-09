@@ -5,6 +5,7 @@ import json
 import logging
 import re
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from functools import total_ordering
 from pathlib import Path
@@ -29,6 +30,10 @@ ssl_context = ssl.create_default_context(
 )
 
 
+class RequestAborted(RuntimeError):
+    """Raised when an in-flight GitHub request is cancelled by shutdown."""
+
+
 @dataclass(frozen=True)
 class RemotePackage:
     version: str
@@ -40,8 +45,25 @@ class RemotePackage:
 
 
 class GitHubClient:
-    def __init__(self, config: GitHubConfig) -> None:
+    """GitHub contents API client.
+
+    Retries are bounded per cycle: exhausting them raises, and the service loop
+    simply schedules another cycle. This keeps a network outage from blocking
+    shutdown for hours while still retrying indefinitely at the service level.
+    """
+
+    RETRYABLE_STATUS = {408, 425, 429, 500, 502, 503, 504}
+    REQUEST_TIMEOUT_SECONDS = 30
+
+    def __init__(
+        self,
+        config: GitHubConfig,
+        max_attempts: int = 5,
+        should_abort: Callable[[], bool] | None = None,
+    ) -> None:
         self.config = config
+        self.max_attempts = max(1, int(max_attempts))
+        self.should_abort = should_abort
 
     def get_remote_package(self) -> RemotePackage:
         files = self._list_package_files()
@@ -120,22 +142,43 @@ class GitHubClient:
             "User-Agent": "python-runtime-agent/1.0",
             "X-GitHub-Api-Version": "2022-11-28",
         }
-        req = Request(url, headers=headers)
         last_error: Exception | None = None
-        for attempt in range(1, 100):
+        for attempt in range(1, self.max_attempts + 1):
+            self._raise_if_aborted()
             try:
-                with urlopen(req, timeout=60,context=ssl_context) as response:
+                with urlopen(
+                    Request(url, headers=headers),
+                    timeout=self.REQUEST_TIMEOUT_SECONDS,
+                    context=ssl_context,
+                ) as response:
                     return response.read()
             except HTTPError as exc:
                 last_error = exc
-                if exc.code not in {429, 500, 502, 503, 504}:
+                if exc.code not in self.RETRYABLE_STATUS:
                     raise
             except OSError as exc:
                 last_error = exc
+            if attempt >= self.max_attempts:
+                break
             delay = min(2**attempt, 8)
-            LOG.warning("GitHub request failed on attempt %s, retrying in %ss: %s", attempt, delay, last_error)
-            time.sleep(delay)
-        raise RuntimeError(f"GitHub request failed after retries: {last_error}")
+            LOG.warning(
+                "GitHub request failed on attempt %s/%s, retrying in %ss: %s",
+                attempt, self.max_attempts, delay, last_error,
+            )
+            self._sleep_or_abort(delay)
+        raise RuntimeError(
+            f"GitHub request failed after {self.max_attempts} attempts: {last_error}"
+        )
+
+    def _raise_if_aborted(self) -> None:
+        if self.should_abort and self.should_abort():
+            raise RequestAborted("GitHub request cancelled: agent is stopping")
+
+    def _sleep_or_abort(self, delay: int) -> None:
+        deadline = time.monotonic() + delay
+        while time.monotonic() < deadline:
+            self._raise_if_aborted()
+            time.sleep(min(0.5, max(0, deadline - time.monotonic())))
 
 
 def _version_sort_key(package: RemotePackage) -> VersionSortKey:

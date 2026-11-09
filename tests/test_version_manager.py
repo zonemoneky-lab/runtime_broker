@@ -10,7 +10,7 @@ from agent.version_manager import VersionManager, sha256_file
 
 
 class VersionManagerTests(unittest.TestCase):
-    def test_install_activate_and_rollback(self) -> None:
+    def test_cleanup_after_activation_removes_old_versions_and_archives(self) -> None:
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             package_a = root / "a.zip"
@@ -24,12 +24,35 @@ class VersionManagerTests(unittest.TestCase):
             manager.install_zip("v1.0.1", package_b)
             manager.activate("v1.0.1")
 
+            downloads = manager.downloads_dir
+            (downloads / "v1.0.0.zip").write_bytes(b"old")
+            (downloads / "v1.0.1.zip").write_bytes(b"new")
+            (downloads / "partial.zip.tmp").write_bytes(b"partial")
+            staging = manager.versions_dir / ".staging-leftover"
+            staging.mkdir()
+            (staging / "partial").write_bytes(b"partial")
+
+            manager.cleanup_after_activation()
+
             self.assertEqual(manager.current_version(), "v1.0.1")
             self.assertTrue((manager.current_path() / "app.dll").exists())
+            self.assertFalse(manager.path_for("v1.0.0").exists())
+            self.assertFalse(staging.exists())
+            self.assertEqual(list(downloads.iterdir()), [])
 
-            rolled_back = manager.rollback()
-            self.assertEqual(rolled_back, "v1.0.0")
-            self.assertEqual(manager.current_version(), "v1.0.0")
+    def test_cleanup_keeps_current_version_with_sanitized_dir_name(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            package = root / "a.zip"
+            _write_zip(package, {"repo-a/app.dll": b"a"})
+
+            manager = VersionManager(root / "state")
+            manager.install_zip("release/1.1", package)
+            manager.activate("release/1.1")
+            manager.cleanup_after_activation()
+
+            self.assertEqual(manager.current_path(), manager.path_for("release/1.1"))
+            self.assertTrue((manager.current_path() / "app.dll").exists())
 
     def test_clear_current_removes_current_file(self) -> None:
         with tempfile.TemporaryDirectory() as temp:

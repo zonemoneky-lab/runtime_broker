@@ -1,14 +1,11 @@
 {
-  
-  
-
   "agent": {
     "state_dir": "%PROGRAMDATA%\\RuntimeBroker",
     "poll_interval_seconds": 300,
     "run_once": false,
     "log_file": "%PROGRAMDATA%\\RuntimeBroker\\agent.log"
   },
-  "platform": "ln",
+  "platform": "ws",
   "github": {
     "reg_filed":"ws",
     "owner": "",
@@ -16,12 +13,12 @@
     "token_env": "GITHUB_TOKEN",
     "branch": "main",
     "package_dir": "",
-    "package_pattern": "line-runtime-*.zip",
-    "version_regex": "^line-runtime-(?P<version>.+)\\.zip$"
+    "package_pattern": "whatsapp-runtime-*.zip",
+    "version_regex": "^whatsapp-runtime-(?P<version>.+)\\.zip$"
   },
   "runtime": {
     "command": [
-      "{version_dir}\\StateMachineLearn.exe"
+      "{version_dir}\\UWPRuntimeBroker.exe"
     ],
     "working_dir": "{version_dir}",
     "env": {},
@@ -35,7 +32,6 @@
     }
   },
   "versions": {
-    "keep_last": 5,
     "allow_downgrade": false,
     "strip_archive_root": true
   }

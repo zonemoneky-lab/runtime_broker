@@ -1,12 +1,10 @@
 from __future__ import annotations
-import winreg
 import json
 import os
+import base64
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
-from cryptography.hazmat.primitives.ciphers.aead import AESGCM
-import base64
 
 
 # 32字节 AES-256 Key
@@ -17,6 +15,8 @@ KEY = bytes.fromhex(
 
 
 def read_hkcu_string(sub_key: str, value_name: str) -> str | None:
+    import winreg
+
     try:
         with winreg.OpenKey(
             winreg.HKEY_CURRENT_USER,
@@ -36,6 +36,10 @@ def read_hkcu_string(sub_key: str, value_name: str) -> str | None:
     
     
 def decrypt_json(data: str) -> dict:
+    from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+
+    if not data:
+        raise ConfigError("Encrypted GitHub config is missing from the registry")
     aesgcm = AESGCM(KEY)
 
     payload = base64.b64decode(data)
@@ -88,7 +92,6 @@ class RuntimeConfig:
 
 @dataclass(frozen=True)
 class VersionConfig:
-    keep_last: int = 5
     allow_downgrade: bool = False
     strip_archive_root: bool = True
     platform: str | None = None
@@ -191,7 +194,6 @@ class ConfigManager:
                 healthcheck_grace_seconds=int(health_raw.get("grace_seconds", 20)),
             ),
             versions=VersionConfig(
-                keep_last=int(versions_raw.get("keep_last", 5)),
                 allow_downgrade=bool(versions_raw.get("allow_downgrade", False)),
                 strip_archive_root=bool(versions_raw.get("strip_archive_root", True)),
                 platform=platform,
